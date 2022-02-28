@@ -1,7 +1,7 @@
 from http.client import HTTPResponse # gians TODELETE DEBUG
 from django.http import HttpResponse # gians TODELETE DEBUG
 from django.shortcuts import render, redirect
-import logging # gians LOG
+import logging # gians LOG TODO not working properly
 
 from uploadimg.forms import ImageForm
 
@@ -9,7 +9,7 @@ from uploadimg.forms import ImageForm
 import numpy as np
 import tensorflow.compat.v1 as tf
 import cv2 as cv
-from tkinter import Image # gians TO BE DELETED
+#from tkinter import Image # gians TODELETE???
 
 def index(request):
     """Process images uploaded by users"""
@@ -24,6 +24,7 @@ def index(request):
         form = ImageForm(request.POST, request.FILES)
         if form.is_valid():
             form.save()
+                        
             # Get the current instance object to display in the template
             img_obj = form.instance
             
@@ -53,6 +54,7 @@ def park_detection(img_obj, img_output_path, img_output_fname):
     tf.disable_v2_behavior()
 
     logger.info("park_detection()") #TODO not working
+    logger.info(img_output_fname) #TODO not working
 
     # Read the graph.
     with tf.io.gfile.GFile('frozen_inference_graph.pb', 'rb') as f:
@@ -65,8 +67,8 @@ def park_detection(img_obj, img_output_path, img_output_fname):
         tf.import_graph_def(graph_def, name='')
 
         # Read and preprocess an image.
-        # img = cv.imread('example.jpg')
-        img = cv.imread(img_obj)
+        img = cv.imread('example.jpg')
+        #img = cv.imread(img_obj)
         rows = img.shape[0]
         cols = img.shape[1]
         inp = cv.resize(img, (300, 300))
@@ -96,11 +98,9 @@ def park_detection(img_obj, img_output_path, img_output_fname):
     # cv.waitKey()
     
     cv.imwrite(img_output_path + img_output_fname, img)
+    cv.imwrite("newimage.jpg", img) #TODELETE HARDCODED DEBUG
 
-    # TOBEDELETE
-    imencoded = cv.imencode(".jpg", img)[1]
-
-    return img # TODELETE
+    return
 
 def index_orig_with_tf(request):
     template_name = 'main/index.html'
