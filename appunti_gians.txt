@@ -1,0 +1,16 @@
+python3 manage.py makemigrations
+
+# app name for the database
+python3 manage.py makemigrations uploadimg
+
+python3 manage.py migrate
+
+python3 manage.py runserver
+
+### sqlite commands
+sqlite3 db.sqlite3
+
+# show tables
+.tables
+
+## use SQL commands
