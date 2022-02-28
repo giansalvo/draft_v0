@@ -13,4 +13,8 @@ sqlite3 db.sqlite3
 # show tables
 .tables
 
-## use SQL commands
+# use standard SQL commands
+select * from ...
+
+# collect static files
+python manage.py collectstatic
