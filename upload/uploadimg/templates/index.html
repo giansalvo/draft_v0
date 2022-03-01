@@ -21,10 +21,8 @@
 {% endif %}
   
 {% if img_output %}
-  <h3>Output image:</h3>
-  {{img_output}}<br>
-  {% load static %} 
-  <img src="{% static '/newimage.jpg' %}" alt="image after detection" style="max-height:300px">
+  <h3>Output image: {{img_output}}</h3>
+  <img src="{{ img_output }}" alt="image after detection" style="max-height:300px">
 {% endif %}
 
   <h3>Immagine statica DEBUG:</h3>

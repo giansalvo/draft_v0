@@ -18,7 +18,6 @@ def index(request):
     
     # TODO use name of input file and use dynamic
     img_output_path = "./uploadimg/static/"
-    img_output_fname = "newimage.jpg"
     
     if request.method == 'POST':
         form = ImageForm(request.POST, request.FILES)
@@ -28,10 +27,12 @@ def index(request):
             # Get the current instance object to display in the template
             img_obj = form.instance
             
+            img_output_fname = img_obj.title + "_new.jpg"
+
             park_detection(img_obj, img_output_path, img_output_fname)
             
             try:
-                img_output = open(img_output_fname, "rb")
+                img_output = open(img_output_path + img_output_fname, "rb")
                 logger.info("File loaded.")
                 logger.info(img_output)
             except IOError:
@@ -39,7 +40,7 @@ def index(request):
                 return HttpResponse("File not found")
                 #TODO improve error page 
 
-            return render(request, 'index.html', {'form': form, 'img_obj': img_obj, 'img_output': img_output_fname})
+            return render(request, 'index.html', {'form': form, 'img_obj': img_obj, 'img_output': "static/" + img_output_fname})
     else:
         form = ImageForm()
     return render(request, 'index.html', {'form': form})
