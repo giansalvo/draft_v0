@@ -27,7 +27,7 @@ def index(request):
             # Get the current instance object to display in the template
             img_obj = form.instance
             
-            img_output_fname = img_obj.title + "_new.jpg"
+            img_output_fname = img_obj.title + "_new.jpg" #TODO HARDCODED add datetime instead?
 
             park_detection(img_obj, img_output_path, img_output_fname)
             
@@ -40,7 +40,9 @@ def index(request):
                 return HttpResponse("File not found")
                 #TODO improve error page 
 
-            return render(request, 'index.html', {'form': form, 'img_obj': img_obj, 'img_output': "static/" + img_output_fname})
+            return render(request, 'index.html', {'form': form, 
+                        'img_obj': img_obj, 
+                        'img_output': "static/" + img_output_fname}) #TODO HARDCODED
     else:
         form = ImageForm()
     return render(request, 'index.html', {'form': form})
@@ -68,7 +70,7 @@ def park_detection(img_obj, img_output_path, img_output_fname):
         tf.import_graph_def(graph_def, name='')
 
         # Read and preprocess an image.
-        img = cv.imread('example.jpg')
+        img = cv.imread('example.jpg') #TODO HARDCODED
         #img = cv.imread(img_obj)
         rows = img.shape[0]
         cols = img.shape[1]
@@ -99,7 +101,6 @@ def park_detection(img_obj, img_output_path, img_output_fname):
     # cv.waitKey()
     
     cv.imwrite(img_output_path + img_output_fname, img)
-    cv.imwrite("newimage.jpg", img) #TODELETE HARDCODED DEBUG
 
     return
 
