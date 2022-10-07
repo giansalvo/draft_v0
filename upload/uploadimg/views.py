@@ -91,17 +91,43 @@ def index(request):
     return render(request, 'index.html', {'form': form})
 
 
+def create_mask(pred_mask: tf.Tensor) -> tf.Tensor:
+    """Return a filter mask with the top 1 predicitons
+    only.
+
+    Parameters
+    ----------
+    pred_mask : tf.Tensor
+        A [img_size, img_size, N_CLASS] tensor. For each pixel we have
+        N_CLASS values (vector) which represents the probability of the pixel
+        being these classes. Example: A pixel with the vector [0.0, 0.0, 1.0]
+        has been predicted class 2 with a probability of 100%.
+
+    Returns
+    -------
+    tf.Tensor
+        A [img_size, img_size, 1] mask with top 1 predictions
+        for each pixels.
+    """
+    # pred_mask -> [img_size, img_size, N_CLASS]
+    # 1 prediction for each class but we want the highest score only
+    # so we use argmax
+    pred_mask = tf.argmax(pred_mask, axis=-1)
+    # pred_mask becomes [img_size, img_size]
+    # but matplotlib needs [img_size, img_size, 1]
+    pred_mask = tf.expand_dims(pred_mask, axis=-1)
+    return pred_mask
+
 def park_detection(img, img_output_path, img_output_fname):
     global logger
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger('gians')
     template_name = 'main/index.html'
 
-    # Example for Tensorflow 2.0
     tf.disable_v2_behavior()
 
     # Read the graph.
-    with tf.io.gfile.GFile('frozen_inference_graph.pb', 'rb') as f:
+    with tf.io.gfile.GFile('frozen_graph_unet.pb', 'rb') as f:
         graph_def = tf.GraphDef()
         graph_def.ParseFromString(f.read())
 
@@ -112,32 +138,31 @@ def park_detection(img, img_output_path, img_output_fname):
 
         rows = img.shape[0]
         cols = img.shape[1]
-        inp = cv.resize(img, (300, 300))
-        inp = inp[:, :, [2, 1, 0]]  # BGR2RGB
+        img_input = cv.resize(img, (256, 256))
+        img_input = np.expand_dims(img_input, axis=0)
+
+        logger.info("park_detection: print operations")
+        for item in sess.graph.get_operations():
+            print(str(item.name))
 
         # Run the model
-        out = sess.run([sess.graph.get_tensor_by_name('num_detections:0'),
-                        sess.graph.get_tensor_by_name('detection_scores:0'),
-                        sess.graph.get_tensor_by_name('detection_boxes:0'),
-                        sess.graph.get_tensor_by_name('detection_classes:0')],
-                    feed_dict={'image_tensor:0': inp.reshape(1, inp.shape[0], inp.shape[1], 3)})
+        tensor_output = sess.graph.get_tensor_by_name('Identity:0')
+        tensor_input = sess.graph.get_tensor_by_name('x:0')
+        inference = sess.run(tensor_output, {tensor_input:img_input})
 
-        # Visualize detected bounding boxes.
-        num_detections = int(out[0][0])
-        for i in range(num_detections):
-            classId = int(out[3][0][i])
-            score = float(out[1][0][i])
-            bbox = [float(v) for v in out[2][0][i]]
-            if score > 0.3:
-                x = bbox[1] * cols
-                y = bbox[0] * rows
-                right = bbox[3] * cols
-                bottom = bbox[2] * rows
-                cv.rectangle(img, (int(x), int(y)), (int(right), int(bottom)), (125, 255, 51), thickness=2)
+        predictions = create_mask(inference)
+        pred = predictions[0]
+        pred *= 100 # TODO HARDCODED JUST TO MAKE VISIBLE WHEN DISPLAYING ON WEB
 
-    # cv.imshow('TensorFlow MobileNet-SSD', img)
-    # cv.waitKey()
+        logger.info("park_detection: print mask")
+        print(pred)
     
-    cv.imwrite(img_output_path + img_output_fname, img)
+        #cv.imwrite(img_output_path + img_output_fname, pred)
+        fname = img_output_path + img_output_fname
+        print("Saving trimap output segmented image to file: " + fname)
+        img1 = tf.cast(pred, tf.uint8)
+        img1 = tf.image.encode_jpeg(img1)
+        fwrite = tf.io.write_file(tf.constant(fname), img1)
+        result = sess.run(fwrite)
 
     return
