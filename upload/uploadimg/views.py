@@ -136,25 +136,26 @@ def park_detection(img, img_output_path, img_output_fname):
         sess.graph.as_default()
         tf.import_graph_def(graph_def, name='')
 
-        rows = img.shape[0]
-        cols = img.shape[1]
-        img_input = cv.resize(img, (256, 256))
+        img_input = cv.resize(img, (256, 256))  # TODO HARDCODED VALUE IN THE GRAPH 256x256
+        # img_input = img_input[:, :, [2, 1, 0]]  # BGR2RGB
         img_input = np.expand_dims(img_input, axis=0)
 
-        logger.info("park_detection: print operations")
-        for item in sess.graph.get_operations():
-            print(str(item.name))
+        # logger.info("park_detection: print operations")
+        # for item in sess.graph.get_operations():
+        #     print(str(item.name))
 
         # Run the model
         tensor_output = sess.graph.get_tensor_by_name('Identity:0')
         tensor_input = sess.graph.get_tensor_by_name('x:0')
-        inference = sess.run(tensor_output, {tensor_input:img_input})
+        # inference = sess.run(tensor_output, {tensor_input:img_input})
+        inference = sess.run(tensor_output, 
+                            feed_dict={tensor_input: img_input})
 
         predictions = create_mask(inference)
         pred = predictions[0]
         pred *= 100 # TODO HARDCODED JUST TO MAKE VISIBLE WHEN DISPLAYING ON WEB
 
-        logger.info("park_detection: print mask")
+        logger.info("park_detection: predicted mask")
         print(pred)
     
         #cv.imwrite(img_output_path + img_output_fname, pred)
