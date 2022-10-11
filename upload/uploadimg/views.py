@@ -31,7 +31,8 @@ import datetime
 # gians: libraries for AI
 import numpy as np
 import tensorflow.compat.v1 as tf
-import cv2 as cv
+import tensorflow_addons as tfa
+import cv2
 
 IMAGE_TEMP = "img.jpg"
 
@@ -70,7 +71,7 @@ def index(request):
             img_output_fname = img_obj.title + "_" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + ".jpg"
 
             handl_uploaded_file(request.FILES['image'])
-            img = cv.imread(IMAGE_TEMP)
+            img = cv2.imread(IMAGE_TEMP)
 
             park_detection(img, img_output_path, img_output_fname)
             
@@ -118,6 +119,7 @@ def create_mask(pred_mask: tf.Tensor) -> tf.Tensor:
     pred_mask = tf.expand_dims(pred_mask, axis=-1)
     return pred_mask
 
+
 def park_detection(img, img_output_path, img_output_fname):
     global logger
     logging.basicConfig(level=logging.INFO)
@@ -136,7 +138,7 @@ def park_detection(img, img_output_path, img_output_fname):
         sess.graph.as_default()
         tf.import_graph_def(graph_def, name='')
 
-        img_input = cv.resize(img, (256, 256))  # TODO HARDCODED VALUE IN THE GRAPH 256x256
+        img_input = cv2.resize(img, (256, 256))  # TODO HARDCODED VALUE IN THE GRAPH 256x256
         # img_input = img_input[:, :, [2, 1, 0]]  # BGR2RGB
         img_input = np.expand_dims(img_input, axis=0)
 
@@ -155,13 +157,16 @@ def park_detection(img, img_output_path, img_output_fname):
         pred = predictions[0]
         pred *= 100 # TODO HARDCODED JUST TO MAKE VISIBLE WHEN DISPLAYING ON WEB
 
-        logger.info("park_detection: predicted mask")
-        print(pred)
-    
+        img_input = tf.squeeze(img_input)
+        print(img_input.shape)
+        print(pred.shape)
+        overlay = tfa.image.blend(img_input, pred, 0.5)
+
+
         #cv.imwrite(img_output_path + img_output_fname, pred)
         fname = img_output_path + img_output_fname
         print("Saving trimap output segmented image to file: " + fname)
-        img1 = tf.cast(pred, tf.uint8)
+        img1 = tf.cast(overlay, tf.uint8)
         img1 = tf.image.encode_jpeg(img1)
         fwrite = tf.io.write_file(tf.constant(fname), img1)
         result = sess.run(fwrite)
