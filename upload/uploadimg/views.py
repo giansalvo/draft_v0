@@ -138,6 +138,8 @@ def park_detection(img, img_output_path, img_output_fname):
         sess.graph.as_default()
         tf.import_graph_def(graph_def, name='')
 
+        w_orig = img.shape[1]
+        h_orig = img.shape[0]
         img_input = cv2.resize(img, (256, 256))  # TODO HARDCODED VALUE IN THE GRAPH 256x256
         # img_input = img_input[:, :, [2, 1, 0]]  # BGR2RGB
         img_input = np.expand_dims(img_input, axis=0)
@@ -161,6 +163,7 @@ def park_detection(img, img_output_path, img_output_fname):
         print(img_input.shape)
         print(pred.shape)
         overlay = tfa.image.blend(img_input, pred, 0.5)
+        overlay = cv2.resize(img, (w_orig, h_orig))
 
 
         #cv.imwrite(img_output_path + img_output_fname, pred)
