@@ -4,8 +4,26 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   <meta name="description" content="">
-  <meta name="author" content="">
+  <meta name="author" content="Giansalvo Gusinu">
   <title>Parkinson's detection</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    
+    .column {
+      float: left;
+      width: 33.33%;
+      padding: 5px;
+    }
+    
+    /* Clearfix (clear floats) */
+    .row::after {
+      content: "";
+      clear: both;
+      display: table;
+    }
+  </style>
 </head>
 <body>
 <p><h1>Parkinson's detection draft v0</h1></p>
@@ -15,15 +33,20 @@
   <button type="submit">Upload and Detection</button>
 </form>
 
-{% if img_obj %}
-  <h3>Succesfully uploaded : {{img_obj.title}}</h3>
-  <img src="{{ img_obj.image.url}}" alt="image uploaded" style="max-height:300px">
-{% endif %}
-  
-{% if img_output %}
-  <h3>Output image: {{img_output}}</h3>
-  <img src="{{ img_output }}" alt="image after detection" style="max-height:300px">
-{% endif %}
+<div class="row">
+  <div class="column">
+    {% if img_obj %}
+    <h3>Succesfully uploaded : {{img_obj.title}}</h3>
+    <img src="{{ img_obj.image.url}}" alt="image uploaded" style="width:100%">
+    {% endif %}
+  </div>
+  <div class="column">
+    {% if img_output %}
+    <h3>Output image: {{img_output}}</h3>
+    <img src="{{ img_output }}" alt="image after detection" style="width:100%">
+    {% endif %}
+  </div>
+</div> 
 
  </body>
 </html>
