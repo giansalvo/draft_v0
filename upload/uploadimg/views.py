@@ -21,6 +21,7 @@
     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
     DEALINGS IN THE SOFTWARE.
 """
+import os
 from django.http import HttpResponse # gians TODELETE DEBUG
 from django.shortcuts import render, redirect
 import logging 
@@ -35,6 +36,8 @@ import tensorflow_addons as tfa
 import cv2
 
 IMAGE_TEMP = "img.jpg"
+MODEL_PATH = "model_unet_us_w46.h5"
+
 
 def handl_uploaded_file(f, fname=IMAGE_TEMP):
 	with open(fname, 'wb+') as destination:
@@ -57,7 +60,7 @@ def index(request):
     # add ch to logger
     logger.addHandler(ch)
     logger.info("Starting")
-    
+
     # TODO use name of input file and use dynamic
     img_output_path = "./uploadimg/static/"
     
@@ -73,7 +76,15 @@ def index(request):
             handl_uploaded_file(request.FILES['image'])
             img = cv2.imread(IMAGE_TEMP)
 
-            park_detection(img, img_output_path, img_output_fname)
+            print("Loading network model from: " + MODEL_PATH)
+            model = tf.keras.models.load_model(MODEL_PATH)
+
+            overlay = park_detection(model, img)
+
+            fname = os.path.join(img_output_path, img_output_fname)
+            print("Saving trimap output segmented image to file: " + fname)
+            cv2.imwrite(fname, overlay,  [int(cv2.IMWRITE_PNG_COMPRESSION), 0])
+
             
             try:
                 img_output = open(img_output_path + img_output_fname, "rb")
@@ -120,14 +131,94 @@ def create_mask(pred_mask: tf.Tensor) -> tf.Tensor:
     return pred_mask
 
 
-def park_detection(img, img_output_path, img_output_fname):
+def image_fusion(background, foreground, sharp=False, alfa=0.5):
+    img1 = background
+    img2 = foreground
+
+    rows,cols,channels = img2.shape
+    roi = img1[0:rows, 0:cols ]
+
+    img2gray = cv2.cvtColor(img2,cv2.COLOR_BGR2GRAY)
+    ret, mask = cv2.threshold(img2gray, 200, 255, cv2.THRESH_BINARY_INV)
+    mask_inv = cv2.bitwise_not(mask)
+
+    img1_hidden_bg = cv2.bitwise_and(img1, img1, mask = mask)
+    #cv2.imshow("img1_hidden_bg", img1_hidden_bg)
+
+    img1_bg = cv2.bitwise_and(roi,roi,mask = mask_inv)
+    #cv2.imshow("img1_bg", img1_bg)
+
+    img2_fg = cv2.bitwise_and(img2,img2,mask = mask)
+    #cv2.imshow("img2_fg", img2_fg)
+
+    out_img = cv2.add(img1_bg,img2_fg)
+    #cv2.imshow("out_img", out_img)
+    img1[0:rows, 0:cols ] = out_img
+
+    # cv2.imshow("Result Sharp", img1)
+
+    ALFA = 0.5
+    img1_hidden_merge = cv2.addWeighted(img1_hidden_bg, ALFA, img2_fg, 1-ALFA, 0.0)
+    img_opaque = cv2.add(img1_bg, img1_hidden_merge)
+
+    if sharp:
+        return img1
+    else:
+        return img_opaque
+
+
+def park_detection(model, img):
     global logger
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger('gians')
-    template_name = 'main/index.html'
 
-    tf.disable_v2_behavior()
+    w_orig = img.shape[1]
+    h_orig = img.shape[0]
 
+    # img0, _, _ = read_image("I000.jpg") 
+    img0 = tf.image.resize(img, [256, 256]) # TODO HARDCODED VALUEs
+    img_tensor = tf.cast(img0, tf.float32) / 255.0    # normalize
+    img_tensor = np.expand_dims(img_tensor, axis=0)
+
+    predictions = model.predict(img_tensor)
+    pred = create_mask(predictions)[0]
+    pred = pred + 1 # de-normalization
+
+    # plot_samples_matplotlib([img0, pred], ["sample", "prediction"] )
+
+    # convert to OpenCV image format
+    i0 = img0.numpy()
+    i1 = pred.numpy()
+    i1 = np.squeeze(i1)
+    i1 = np.float32(i1)
+
+    # overlay = get_overlay(i0, i1)
+    
+    FOREGROUND = 1
+    OFFSET = 255 - FOREGROUND
+    RED = [0,0, 255] # BGR
+    WHITE = [255,255,255]
+
+    #####
+    # fusion of sample image and foreground area from predicted image
+    #####
+    img_pred = i1
+    img_pred += OFFSET
+    img_pred=cv2.cvtColor(img_pred, cv2.COLOR_GRAY2BGR)
+    img_pred[np.all(img_pred == WHITE, axis=-1)] = RED
+    i1 = img_pred
+
+    i0 = i0.astype(np.uint8)
+    i1 = i1.astype(np.uint8)
+   
+    overlay = image_fusion(i0, i1)
+
+    overlay = cv2.resize(overlay, (w_orig, h_orig))
+
+    return overlay
+
+
+def temp_orig():
     # Read the graph.
     with tf.io.gfile.GFile('frozen_graph_unet.pb', 'rb') as f:
         graph_def = tf.GraphDef()
@@ -157,7 +248,7 @@ def park_detection(img, img_output_path, img_output_fname):
 
         predictions = create_mask(inference)
         pred = predictions[0]
-        pred *= 100 # TODO HARDCODED JUST TO MAKE VISIBLE WHEN DISPLAYING ON WEB
+        pred = (pred + 1) * 100 # TODO HARDCODED JUST TO MAKE VISIBLE WHEN DISPLAYING ON WEB
 
         img_input = tf.squeeze(img_input)
         print(img_input.shape)
